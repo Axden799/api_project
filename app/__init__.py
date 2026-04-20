@@ -15,4 +15,7 @@ def create_app(config_name=None):
     login_manager.init_app(app)
     migrate.init_app(app, db)
 
+    with app.app_context():
+        from . import models  # noqa: F401 — registers tables with SQLAlchemy
+
     return app
