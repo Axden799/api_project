@@ -1,0 +1,21 @@
+# Core
+flask
+flask-login
+flask-sqlalchemy
+flask-migrate
+flask-wtf
+
+# Email validation
+email-validator
+
+# Environment variables
+python-dotenv
+
+# Payments
+stripe
+
+# Transactional email
+sendgrid
+
+# Production server
+gunicorn
