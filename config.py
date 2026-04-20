@@ -16,7 +16,8 @@ class DevelopmentConfig(Config):
 
 class TestingConfig(Config):
     TESTING = True
-    SQLALCHEMY_DATABASE_URI = 'sqlite:///test.db'
+    SQLALCHEMY_DATABASE_URI = 'sqlite:///:memory:'  # in-memory, leaves no file
+    WTF_CSRF_ENABLED = False                        # disable CSRF for form submissions in tests
 
 
 class ProductionConfig(Config):

@@ -19,3 +19,6 @@ sendgrid
 
 # Production server
 gunicorn
+
+# Testing
+pytest

@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}App{% endblock %}</title>
+    <style>
+        *, *::before, *::after { box-sizing: border-box; }
+
+        body {
+            font-family: sans-serif;
+            margin: 0;
+            padding: 0;
+            background: #f5f5f5;
+            color: #222;
+        }
+
+        /* Nav */
+        nav {
+            background: #222;
+            color: #fff;
+            padding: .75rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        nav .brand { font-weight: bold; font-size: 1.1rem; }
+        nav a { color: #fff; text-decoration: none; margin-left: 1rem; font-size: .9rem; }
+        nav a:hover { text-decoration: underline; }
+
+        /* Logout sits in the nav as a minimal form */
+        .logout-form { display: inline; margin-left: 1rem; }
+        .logout-btn {
+            background: none;
+            border: 1px solid #fff;
+            color: #fff;
+            padding: .25rem .75rem;
+            border-radius: 3px;
+            cursor: pointer;
+            font-size: .85rem;
+        }
+        .logout-btn:hover { background: #444; }
+
+        /* Layout */
+        .container {
+            max-width: 960px;
+            margin: 2rem auto;
+            padding: 0 1rem;
+        }
+
+        /* Card */
+        .card {
+            background: #fff;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 2rem;
+        }
+        .card-narrow { max-width: 480px; margin: 0 auto; }
+
+        /* Flash messages */
+        .flash {
+            padding: .75rem 1rem;
+            margin-bottom: 1rem;
+            border-radius: 4px;
+            font-size: .95rem;
+        }
+        .flash.success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .flash.error   { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+        .flash.info    { background: #d1ecf1; color: #0c5460; border: 1px solid #bee5eb; }
+
+        /* Forms */
+        label {
+            display: block;
+            margin-top: 1rem;
+            font-weight: bold;
+            font-size: .9rem;
+        }
+        label.inline {
+            display: inline;
+            font-weight: normal;
+        }
+        input[type=text],
+        input[type=email],
+        input[type=password] {
+            width: 100%;
+            padding: .5rem .75rem;
+            margin-top: .25rem;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            font-size: 1rem;
+        }
+        input[type=text]:focus,
+        input[type=email]:focus,
+        input[type=password]:focus {
+            outline: none;
+            border-color: #222;
+        }
+        .field-error { color: #721c24; font-size: .85rem; margin-top: .25rem; }
+
+        /* Buttons */
+        button[type=submit], .btn {
+            display: inline-block;
+            margin-top: 1.5rem;
+            padding: .6rem 1.5rem;
+            background: #222;
+            color: #fff;
+            border: none;
+            border-radius: 4px;
+            font-size: 1rem;
+            cursor: pointer;
+            text-decoration: none;
+        }
+        button[type=submit]:hover, .btn:hover { background: #444; }
+
+        /* Utilities */
+        .text-center { text-align: center; }
+        .mt-1 { margin-top: 1rem; }
+        .mt-2 { margin-top: 2rem; }
+        small { color: #666; }
+    </style>
+</head>
+<body>
+
+<nav>
+    <span class="brand">App</span>
+    <span>
+        {% if current_user.is_authenticated %}
+            <small style="color:#aaa;">{{ current_user.email }}</small>
+            <form class="logout-form" method="POST" action="{{ url_for('auth.logout') }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button class="logout-btn" type="submit">Logout</button>
+            </form>
+        {% else %}
+            <a href="{{ url_for('auth.login') }}">Login</a>
+            <a href="{{ url_for('auth.register') }}">Register</a>
+        {% endif %}
+    </span>
+</nav>
+
+<div class="container">
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="flash {{ category }}">{{ message }}</div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
+    {% block content %}{% endblock %}
+
+</div>
+</body>
+</html>

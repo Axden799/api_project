@@ -1,0 +1,17 @@
+{% extends 'base.html' %}
+{% block title %}Dashboard{% endblock %}
+
+{% block content %}
+<div class="card">
+    <h2>Dashboard</h2>
+    <p>Logged in as <strong>{{ current_user.email }}</strong></p>
+
+    {% if not current_user.email_verified %}
+        <div class="flash info">
+            Your email address has not been verified. Check your terminal for the verification link.
+        </div>
+    {% else %}
+        <p><small>Email verified.</small></p>
+    {% endif %}
+</div>
+{% endblock %}

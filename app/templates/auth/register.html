@@ -1,0 +1,36 @@
+{% extends 'base.html' %}
+{% block title %}Create Account{% endblock %}
+
+{% block content %}
+<div class="card card-narrow">
+    <h2>Create Account</h2>
+
+    <form method="POST" action="{{ url_for('auth.register') }}">
+        {{ form.hidden_tag() }}
+
+        {{ form.email.label }}
+        {{ form.email(placeholder='you@example.com') }}
+        {% for error in form.email.errors %}
+            <div class="field-error">{{ error }}</div>
+        {% endfor %}
+
+        {{ form.password.label }}
+        {{ form.password(placeholder='Minimum 8 characters') }}
+        {% for error in form.password.errors %}
+            <div class="field-error">{{ error }}</div>
+        {% endfor %}
+
+        {{ form.confirm_password.label }}
+        {{ form.confirm_password(placeholder='Repeat your password') }}
+        {% for error in form.confirm_password.errors %}
+            <div class="field-error">{{ error }}</div>
+        {% endfor %}
+
+        {{ form.submit() }}
+    </form>
+
+    <p class="mt-1 text-center">
+        Already have an account? <a href="{{ url_for('auth.login') }}">Sign in</a>
+    </p>
+</div>
+{% endblock %}
