@@ -129,7 +129,14 @@ Invitation                   pending invite tokens
 | POST | `/auth/login` | No | Validate credentials, create session |
 | POST | `/auth/logout` | Yes | Clear session |
 | GET | `/auth/verify/<token>` | No | Verify email address |
-| GET | `/dashboard` | Yes | Main app view (placeholder) |
+| GET | `/dashboard` | Yes | Main app view — lists user's organizations |
+| GET | `/orgs/create` | Yes | Create organization form |
+| POST | `/orgs/create` | Yes | Create org, make current user owner |
+| GET | `/orgs/<id>` | Yes | Org dashboard — members, invite form |
+| POST | `/orgs/<id>/invite` | Yes (owner/admin) | Send invite, print link to terminal |
+| GET | `/orgs/invite/<token>` | No | Accept invite link |
+| POST | `/orgs/<id>/members/<id>/remove` | Yes (owner/admin) | Remove a member |
+| POST | `/orgs/<id>/members/<id>/role` | Yes (owner only) | Change a member's role |
 
 ---
 
@@ -213,6 +220,7 @@ pytest tests/test_auth.py::TestLoginRoute::test_wrong_password_rejected  # one t
 |---|---|
 | `tests/conftest.py` | Shared fixtures: app, client, db |
 | `tests/test_auth.py` | User model, tokens, register, login, logout, verification |
+| `tests/test_orgs.py` | Org model, invitation model, create org, invite, accept, remove, change role |
 
 ---
 
@@ -249,19 +257,27 @@ api_project/
 │   ├── dashboard/
 │   │   ├── __init__.py      Blueprint definition
 │   │   └── routes.py        placeholder dashboard (login required)
-│   ├── orgs/                not yet built
+│   ├── orgs/
+│   │   ├── __init__.py      Blueprint definition
+│   │   ├── forms.py         CreateOrgForm, InviteForm
+│   │   ├── routes.py        create, org_dashboard, invite, accept_invite, remove_member, change_role
+│   │   └── utils.py         process_pending_invite — consumes session invite token after login
 │   └── billing/             not yet built
 ├── app/templates/
 │   ├── base.html            shared layout, nav, flash messages
 │   ├── auth/
 │   │   ├── login.html
 │   │   └── register.html
-│   └── dashboard/
-│       └── index.html
+│   ├── dashboard/
+│   │   └── index.html       shows org list with links
+│   └── orgs/
+│       ├── create.html
+│       └── dashboard.html   member list, role controls, invite form
 ├── migrations/              auto-managed by Flask-Migrate
 ├── tests/
 │   ├── conftest.py          pytest fixtures
-│   └── test_auth.py         25 auth tests
+│   ├── test_auth.py         25 auth tests
+│   └── test_orgs.py         33 org tests
 ├── .env                     secrets — not committed
 ├── .env.example             safe template for .env
 ├── config.py                DevelopmentConfig, TestingConfig, ProductionConfig
@@ -280,6 +296,6 @@ api_project/
 | 1 — Skeleton | Done | App factory, config, extensions, run.py |
 | 2 — Models | Done | User, Organization, Membership, Invitation + migrations |
 | 3 — Auth | Done | Register, login, logout, email verification, tests |
-| 4 — Orgs | Not started | Create org, invite members, manage team |
+| 4 — Orgs | Done | Create org, invite members, manage team |
 | 5 — Billing | Not started | Stripe checkout, webhook, customer portal |
 | 6 — Email | Not started | SendGrid integration, real verification emails |

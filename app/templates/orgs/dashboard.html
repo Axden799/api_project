@@ -1,0 +1,91 @@
+{% extends 'base.html' %}
+{% block title %}{{ org.name }}{% endblock %}
+
+{% block content %}
+<div class="card">
+    <h2>{{ org.name }}</h2>
+    <p>
+        Plan: <strong>{{ org.plan | capitalize }}</strong> &mdash;
+        Seats: <strong>{{ org.seat_count }}</strong> /
+        <strong>{{ org.max_seats if org.max_seats is not none else 'Unlimited' }}</strong>
+    </p>
+    <p>Your role: <strong>{{ membership.role | capitalize }}</strong></p>
+</div>
+
+<!-- Member list -->
+<div class="card">
+    <h3>Members</h3>
+    <table>
+        <thead>
+            <tr>
+                <th>Email</th>
+                <th>Role</th>
+                <th>Joined</th>
+                {% if membership.role in ('owner', 'admin') %}<th>Actions</th>{% endif %}
+            </tr>
+        </thead>
+        <tbody>
+        {% for m in org.memberships %}
+            <tr>
+                <td>{{ m.user.email }}</td>
+                <td>{{ m.role | capitalize }}</td>
+                <td>{{ m.joined_at.strftime('%Y-%m-%d') }}</td>
+                {% if membership.role in ('owner', 'admin') %}
+                <td>
+                    {% if m.role != 'owner' and m.user_id != current_user.id %}
+                        <!-- Change role (owner only) -->
+                        {% if membership.role == 'owner' %}
+                        <form method="post" action="{{ url_for('orgs.change_role', org_id=org.id, user_id=m.user_id) }}" style="display:inline">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <select name="role">
+                                <option value="admin" {% if m.role == 'admin' %}selected{% endif %}>Admin</option>
+                                <option value="member" {% if m.role == 'member' %}selected{% endif %}>Member</option>
+                            </select>
+                            <button type="submit">Change</button>
+                        </form>
+                        {% endif %}
+                        <!-- Remove -->
+                        {% if membership.role == 'owner' or (membership.role == 'admin' and m.role == 'member') %}
+                        <form method="post" action="{{ url_for('orgs.remove_member', org_id=org.id, user_id=m.user_id) }}" style="display:inline">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <button type="submit" onclick="return confirm('Remove this member?')">Remove</button>
+                        </form>
+                        {% endif %}
+                    {% endif %}
+                </td>
+                {% endif %}
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<!-- Invite form (owner / admin only) -->
+{% if membership.role in ('owner', 'admin') %}
+<div class="card">
+    <h3>Invite a Member</h3>
+    {% if org.is_at_seat_limit %}
+        <p>Seat limit reached. Upgrade the plan to invite more members.</p>
+    {% else %}
+        <form method="post" action="{{ url_for('orgs.invite', org_id=org.id) }}">
+            {{ invite_form.hidden_tag() }}
+
+            <div>
+                {{ invite_form.email.label }}<br>
+                {{ invite_form.email(size=35, placeholder='colleague@example.com') }}
+                {% for error in invite_form.email.errors %}
+                    <span class="field-error">{{ error }}</span>
+                {% endfor %}
+            </div>
+            <br>
+            <div>
+                {{ invite_form.role.label }}<br>
+                {{ invite_form.role() }}
+            </div>
+            <br>
+            {{ invite_form.submit() }}
+        </form>
+    {% endif %}
+</div>
+{% endif %}
+{% endblock %}

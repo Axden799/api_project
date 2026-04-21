@@ -14,4 +14,26 @@
         <p><small>Email verified.</small></p>
     {% endif %}
 </div>
+
+<div class="card">
+    <h3>Your Organizations</h3>
+    {% if memberships %}
+        <ul>
+        {% for m in memberships %}
+            <li>
+                <a href="{{ url_for('orgs.org_dashboard', org_id=m.organization_id) }}">
+                    {{ m.organization.name }}
+                </a>
+                &mdash; {{ m.role | capitalize }}
+            </li>
+        {% endfor %}
+        </ul>
+    {% else %}
+        <p>You are not a member of any organization yet.</p>
+    {% endif %}
+
+    {% if current_user.email_verified %}
+        <a href="{{ url_for('orgs.create') }}">Create an organization</a>
+    {% endif %}
+</div>
 {% endblock %}

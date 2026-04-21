@@ -6,4 +6,5 @@ from . import dashboard_bp
 @dashboard_bp.route('/dashboard')
 @login_required
 def index():
-    return render_template('dashboard/index.html')
+    memberships = current_user.memberships
+    return render_template('dashboard/index.html', memberships=memberships)

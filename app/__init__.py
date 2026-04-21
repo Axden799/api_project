@@ -1,7 +1,7 @@
 import os
 from flask import Flask
 from config import config
-from .extensions import db, login_manager, migrate
+from .extensions import db, login_manager, migrate, csrf
 
 
 def create_app(config_name=None):
@@ -15,6 +15,7 @@ def create_app(config_name=None):
     db.init_app(app)
     login_manager.init_app(app)
     migrate.init_app(app, db)
+    csrf.init_app(app)
 
     # Flask-Login — where to send unauthenticated users
     login_manager.login_view = 'auth.login'
@@ -27,8 +28,10 @@ def create_app(config_name=None):
     # Register blueprints
     from .auth import auth_bp
     from .dashboard import dashboard_bp
+    from .orgs import orgs_bp
 
     app.register_blueprint(auth_bp, url_prefix='/auth')
     app.register_blueprint(dashboard_bp)
+    app.register_blueprint(orgs_bp)
 
     return app

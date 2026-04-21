@@ -86,6 +86,10 @@ def login():
 
         login_user(user, remember=form.remember_me.data)
 
+        # Consume a pending org invite if the user arrived via an invite link.
+        from ..orgs.utils import process_pending_invite
+        process_pending_invite(user)
+
         # Redirect to the page they were originally trying to reach, if any.
         # urlparse check prevents open-redirect attacks — only allow relative URLs.
         next_page = request.args.get('next')
