@@ -1,0 +1,20 @@
+{% extends 'base.html' %}
+{% block title %}Account Settings{% endblock %}
+
+{% block content %}
+<div class="card card-narrow">
+    <h2>Account Settings</h2>
+    <p><strong>Email:</strong> {{ current_user.email }}
+        {% if current_user.email_verified %}
+            <small style="color:#155724;">(verified)</small>
+        {% else %}
+            <small style="color:#721c24;">(not verified)</small>
+        {% endif %}
+    </p>
+
+    <hr style="margin: 1.5rem 0; border: none; border-top: 1px solid #ddd;">
+
+    <p><a href="{{ url_for('auth.change_email') }}">Change email address</a></p>
+    <p><a href="{{ url_for('auth.change_password') }}">Change password</a></p>
+</div>
+{% endblock %}

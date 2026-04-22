@@ -1,0 +1,34 @@
+{% extends 'base.html' %}
+{% block title %}Change Email{% endblock %}
+
+{% block content %}
+<div class="card card-narrow">
+    <h2>Change Email Address</h2>
+    <p>
+        Your current email is <strong>{{ current_user.email }}</strong>.
+        Enter a new address and confirm your password. A confirmation link
+        will be sent to the new address — your email will not change until
+        you click it.
+    </p>
+
+    <form method="POST">
+        {{ form.hidden_tag() }}
+
+        {{ form.new_email.label }}
+        {{ form.new_email(placeholder='new@example.com') }}
+        {% for error in form.new_email.errors %}
+            <div class="field-error">{{ error }}</div>
+        {% endfor %}
+
+        {{ form.password.label }}
+        {{ form.password(placeholder='Your current password') }}
+        {% for error in form.password.errors %}
+            <div class="field-error">{{ error }}</div>
+        {% endfor %}
+
+        {{ form.submit() }}
+    </form>
+
+    <p class="mt-1"><a href="{{ url_for('auth.settings') }}">&larr; Back to settings</a></p>
+</div>
+{% endblock %}

@@ -61,11 +61,32 @@ Owners and admins can invite new users by email. The system generates a secure, 
 3. Session created → redirected to dashboard
 
 ### Email Verification
-1. Token generated with `itsdangerous` — signed, no database storage needed
+1. Token generated with `itsdangerous` — signed with app secret, no database storage needed
 2. Token expires after 24 hours
 3. Clicking the link sets `email_verified = True` on the User row
+4. If the link is lost, user can request a resend (60-second cooldown)
 
-### Create an Organization (not yet built)
+### Change Email
+1. Logged-in user submits new address and current password
+2. Password verified before anything is changed
+3. Token generated containing both user ID and new email address — new email is not written to the database yet
+4. User clicks link sent to the new address → email updated, `email_verified` reset to True
+5. Holding the change in a token until confirmed prevents typos from locking the user out
+
+### Change Password (logged in)
+1. Logged-in user submits current password, new password, confirmation
+2. Current password verified before the hash is updated
+3. Prevents silent takeover from an unlocked browser session
+
+### Forgot Password
+1. User submits their email address
+2. Same response shown whether or not the email exists (prevents account enumeration)
+3. Token generated containing user ID and a fingerprint of the current password hash
+4. Token expires after 1 hour
+5. User clicks reset link → sets new password → logged in automatically
+6. Token is single-use: changing the password changes the hash fingerprint, making the old token invalid
+
+### Create an Organization
 1. User creates an org, automatically becomes its Owner
 2. Owner selects a plan → redirected to Stripe Checkout
 3. Payment confirmed → org activated
@@ -129,6 +150,14 @@ Invitation                   pending invite tokens
 | POST | `/auth/login` | No | Validate credentials, create session |
 | POST | `/auth/logout` | Yes | Clear session |
 | GET | `/auth/verify/<token>` | No | Verify email address |
+| GET | `/auth/verify-pending` | No | "Check your email" page shown after registration |
+| POST | `/auth/resend-verification` | No | Resend verification link (60-second cooldown) |
+| GET | `/auth/settings` | Yes | Account settings page |
+| GET/POST | `/auth/change-email` | Yes | Request email address change |
+| GET | `/auth/confirm-email-change/<token>` | Yes | Confirm new email via link |
+| GET/POST | `/auth/change-password` | Yes | Change password (requires current password) |
+| GET/POST | `/auth/forgot-password` | No | Request password reset link |
+| GET/POST | `/auth/reset-password/<token>` | No | Set new password via reset link |
 | GET | `/dashboard` | Yes | Main app view — lists user's organizations |
 | GET | `/orgs/create` | Yes | Create organization form |
 | POST | `/orgs/create` | Yes | Create org, make current user owner |
@@ -219,7 +248,7 @@ pytest tests/test_auth.py::TestLoginRoute::test_wrong_password_rejected  # one t
 | File | What it covers |
 |---|---|
 | `tests/conftest.py` | Shared fixtures: app, client, db |
-| `tests/test_auth.py` | User model, tokens, register, login, logout, verification |
+| `tests/test_auth.py` | User model, tokens, register, login, logout, verification, resend, change email, change password, forgot/reset password |
 | `tests/test_orgs.py` | Org model, invitation model, create org, invite, accept, remove, change role |
 
 ---
@@ -252,8 +281,8 @@ api_project/
 │   ├── models.py            User, Organization, Membership, Invitation
 │   ├── auth/
 │   │   ├── __init__.py      Blueprint definition
-│   │   ├── forms.py         RegisterForm, LoginForm
-│   │   └── routes.py        register, login, logout, verify_email
+│   │   ├── forms.py         RegisterForm, LoginForm, ChangeEmailForm, ChangePasswordForm, ForgotPasswordForm, ResetPasswordForm
+│   │   └── routes.py        register, login, logout, verify_email, verify_pending, resend_verification, settings, change_email, confirm_email_change, change_password, forgot_password, reset_password
 │   ├── dashboard/
 │   │   ├── __init__.py      Blueprint definition
 │   │   └── routes.py        placeholder dashboard (login required)
@@ -267,7 +296,13 @@ api_project/
 │   ├── base.html            shared layout, nav, flash messages
 │   ├── auth/
 │   │   ├── login.html
-│   │   └── register.html
+│   │   ├── register.html
+│   │   ├── verify_pending.html
+│   │   ├── settings.html
+│   │   ├── change_email.html
+│   │   ├── change_password.html
+│   │   ├── forgot_password.html
+│   │   └── reset_password.html
 │   ├── dashboard/
 │   │   └── index.html       shows org list with links
 │   └── orgs/
@@ -295,7 +330,7 @@ api_project/
 |---|---|---|
 | 1 — Skeleton | Done | App factory, config, extensions, run.py |
 | 2 — Models | Done | User, Organization, Membership, Invitation + migrations |
-| 3 — Auth | Done | Register, login, logout, email verification, tests |
+| 3 — Auth | Done | Register, login, logout, email verification, resend verification, change email, change password, forgot/reset password, tests |
 | 4 — Orgs | Done | Create org, invite members, manage team |
 | 5 — Billing | Not started | Stripe checkout, webhook, customer portal |
 | 6 — Email | Not started | SendGrid integration, real verification emails |

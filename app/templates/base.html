@@ -126,6 +126,7 @@
     <span>
         {% if current_user.is_authenticated %}
             <small style="color:#aaa;">{{ current_user.email }}</small>
+            <a href="{{ url_for('auth.settings') }}">Settings</a>
             <form class="logout-form" method="POST" action="{{ url_for('auth.logout') }}">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <button class="logout-btn" type="submit">Logout</button>

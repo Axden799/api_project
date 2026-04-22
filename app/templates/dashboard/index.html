@@ -9,6 +9,10 @@
     {% if not current_user.email_verified %}
         <div class="flash info">
             Your email address has not been verified. Check your terminal for the verification link.
+            <form method="POST" action="{{ url_for('auth.resend_verification') }}" style="display:inline; margin-left:1rem;">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button type="submit" style="font-size:.85rem; padding:.25rem .75rem; margin-top:0;">Resend link</button>
+            </form>
         </div>
     {% else %}
         <p><small>Email verified.</small></p>

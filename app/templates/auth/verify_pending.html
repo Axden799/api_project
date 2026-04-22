@@ -1,0 +1,31 @@
+{% extends 'base.html' %}
+{% block title %}Verify Your Email{% endblock %}
+
+{% block content %}
+<div class="card card-narrow">
+    <h2>Check your email</h2>
+    <p>
+        We sent a verification link to <strong>{{ email }}</strong>.
+        Click the link in that email to activate your account.
+    </p>
+    <p><small>The link expires after 24 hours.</small></p>
+
+    <hr style="margin: 1.5rem 0; border: none; border-top: 1px solid #ddd;">
+
+    <p>Didn't receive the email?</p>
+
+    {% if cooldown_remaining > 0 %}
+        <p><small>You can request a new link in {{ cooldown_remaining }} seconds.</small></p>
+        <button type="button" disabled style="opacity:.5; margin-top:.5rem;">Resend verification email</button>
+    {% else %}
+        <form method="POST" action="{{ url_for('auth.resend_verification') }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit" style="margin-top:.5rem;">Resend verification email</button>
+        </form>
+    {% endif %}
+
+    <p class="mt-1">
+        <small>Already verified? <a href="{{ url_for('auth.login') }}">Sign in</a></small>
+    </p>
+</div>
+{% endblock %}
