@@ -5,6 +5,7 @@ from flask_login import login_user, logout_user, login_required, current_user
 from itsdangerous import URLSafeTimedSerializer, SignatureExpired, BadSignature
 from ..extensions import db
 from ..models import User
+from ..extensions import limiter
 from . import auth_bp
 from .forms import (
     RegisterForm, LoginForm,
@@ -117,6 +118,7 @@ def verify_reset_token(token, max_age=3600):
 # ---------------------------------------------------------------------------
 
 @auth_bp.route('/register', methods=['GET', 'POST'])
+@limiter.limit('5 per hour', methods=['POST'])
 def register():
     if current_user.is_authenticated:
         return redirect(url_for('dashboard.index'))
@@ -180,6 +182,7 @@ def verify_pending():
 
 
 @auth_bp.route('/resend-verification', methods=['POST'])
+@limiter.limit('5 per hour')
 def resend_verification():
     """
     Generates a fresh verification token and prints it to the terminal.
@@ -228,6 +231,7 @@ def resend_verification():
 
 
 @auth_bp.route('/login', methods=['GET', 'POST'])
+@limiter.limit('10 per minute', methods=['POST'])
 def login():
     if current_user.is_authenticated:
         return redirect(url_for('dashboard.index'))
@@ -282,6 +286,7 @@ def settings():
 
 @auth_bp.route('/change-email', methods=['GET', 'POST'])
 @login_required
+@limiter.limit('10 per hour', methods=['POST'])
 def change_email():
     form = ChangeEmailForm()
 
@@ -354,6 +359,7 @@ def confirm_email_change(token):
 
 @auth_bp.route('/change-password', methods=['GET', 'POST'])
 @login_required
+@limiter.limit('10 per hour', methods=['POST'])
 def change_password():
     form = ChangePasswordForm()
 
@@ -379,6 +385,7 @@ def change_password():
 # ---------------------------------------------------------------------------
 
 @auth_bp.route('/forgot-password', methods=['GET', 'POST'])
+@limiter.limit('5 per hour', methods=['POST'])
 def forgot_password():
     if current_user.is_authenticated:
         return redirect(url_for('dashboard.index'))

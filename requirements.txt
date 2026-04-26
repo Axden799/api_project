@@ -4,6 +4,7 @@ flask-login
 flask-sqlalchemy
 flask-migrate
 flask-wtf
+flask-limiter
 
 # Email validation
 email-validator

@@ -282,17 +282,24 @@ class TestInviteRoute:
             assert inv is not None
             assert inv.is_pending
 
-    def test_duplicate_pending_invite_blocked(self, client, app):
+    def test_resend_cancels_old_invite_and_issues_new_one(self, client, app):
         org_id = self._setup(app)
         login(client, 'owner@x.com')
         client.post(f'/orgs/{org_id}/invite',
                     data={'email': 'dup@x.com', 'role': 'member'})
-        r = client.post(f'/orgs/{org_id}/invite',
-                        data={'email': 'dup@x.com', 'role': 'member'},
-                        follow_redirects=True)
-        assert b'pending invitation' in r.data.lower()
         with app.app_context():
-            assert Invitation.query.filter_by(email='dup@x.com').count() == 1
+            first_token = Invitation.query.filter_by(email='dup@x.com').first().token
+
+        client.post(f'/orgs/{org_id}/invite',
+                    data={'email': 'dup@x.com', 'role': 'member'},
+                    follow_redirects=True)
+        with app.app_context():
+            invites = Invitation.query.filter_by(email='dup@x.com').all()
+            # Only one invite row should exist — the new one
+            assert len(invites) == 1
+            # The token must have changed — old link is dead
+            assert invites[0].token != first_token
+            assert invites[0].is_pending
 
     def test_invite_blocked_when_at_seat_limit(self, client, app):
         with app.app_context():

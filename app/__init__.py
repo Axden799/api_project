@@ -1,7 +1,7 @@
 import os
 from flask import Flask
 from config import config
-from .extensions import db, login_manager, migrate, csrf
+from .extensions import db, login_manager, migrate, csrf, limiter
 
 
 def create_app(config_name=None):
@@ -16,6 +16,7 @@ def create_app(config_name=None):
     login_manager.init_app(app)
     migrate.init_app(app, db)
     csrf.init_app(app)
+    limiter.init_app(app)
 
     # Flask-Login — where to send unauthenticated users
     login_manager.login_view = 'auth.login'

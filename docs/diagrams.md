@@ -154,6 +154,7 @@ flowchart TD
 ## 5. User Flow — Inviting a Member
 
 How an owner or admin invites someone and how that person joins the org.
+The invite route is rate limited to **5 per hour per IP**.
 
 ```mermaid
 flowchart TD
@@ -161,15 +162,18 @@ flowchart TD
     B --> C{At seat limit?}
     C -- Yes --> D[Invite form hidden\nUpgrade plan prompt shown]
     C -- No --> E[Fill in email + role\nPOST /orgs/org_id/invite]
-    E --> F{Pending invite\nalready exists for this email?}
-    F -- Yes --> G[Blocked: duplicate invite]
-    F -- No --> H[Invitation row created\ntoken + 48h expiry]
-    H --> I[Link printed to terminal]
+    E --> RL{Rate limit\nexceeded?}
+    RL -- Yes --> RLE[429 Too Many Requests]
+    RL -- No --> F{Pending invite\nalready exists for this email?}
+    F -- Yes --> G[Old invite row deleted\nOld token immediately invalid]
+    F -- No --> H
+    G --> H[New invitation row created\nfresh token + new 48h expiry]
+    H --> I[Link printed to terminal\nFlash: previous link is now invalid]
 
     I --> J([Invitee receives link])
     J --> K[GET /orgs/invite/token]
     K --> L{Token valid\nand pending?}
-    L -- No --> M[Error: invalid or expired]
+    L -- No --> M[Error: invalid or expired\nOwner can resend]
     L -- Yes --> N{User logged in?}
     N -- Yes --> O{Email matches\ninvite email?}
     N -- No --> P[Token stored in session\nRedirect to login]
@@ -187,9 +191,36 @@ flowchart TD
 
 ---
 
-## 6. Invitation Lifecycle — State Diagram
+## 6. Rate Limiting — Overview
 
-The three states an invitation moves through.
+
+Every POST to a sensitive route is capped by IP address. Limits are enforced by Flask-Limiter backed by in-memory storage in dev and Redis in production. All limits are disabled in the test environment so tests run freely.
+
+```mermaid
+flowchart LR
+    subgraph Auth Routes
+        L1[POST /auth/login\n10 per minute]
+        L2[POST /auth/register\n5 per hour]
+        L3[POST /auth/forgot-password\n5 per hour]
+        L4[POST /auth/resend-verification\n5 per hour]
+        L5[POST /auth/change-email\n10 per hour]
+        L6[POST /auth/change-password\n10 per hour]
+    end
+
+    subgraph Org Routes
+        L7[POST /orgs/id/invite\n5 per hour]
+    end
+
+    IP([Incoming IP]) --> L1 & L2 & L3 & L4 & L5 & L6 & L7
+    L1 & L2 & L3 & L4 & L5 & L6 & L7 -- Limit exceeded --> E[429 Too Many Requests]
+    L1 & L2 & L3 & L4 & L5 & L6 & L7 -- Under limit --> OK[Request processed normally]
+```
+
+---
+
+## 7. Invitation Lifecycle — State Diagram
+
+The three states an invitation moves through. Resending cancels the Pending state and immediately starts a new one with a fresh token.
 
 ```mermaid
 stateDiagram-v2
@@ -199,13 +230,16 @@ stateDiagram-v2
 
     Pending --> Expired : 48 hours pass\nno action taken
 
+    Pending --> Cancelled : Owner resends invite\nOld row deleted, old token dead\nNew Pending state begins immediately
+
     Accepted --> [*]
     Expired --> [*] : New invite can now be sent\nto the same email
+    Cancelled --> [*]
 ```
 
 ---
 
-## 7. Sequence Diagram — Password Reset Token Exchange
+## 8. Sequence Diagram — Password Reset Token Exchange
 
 Shows the exact sequence of messages between the browser, server, and database during a password reset.
 
@@ -254,7 +288,7 @@ sequenceDiagram
 
 ---
 
-## 8. Sequence Diagram — Email Change Token Exchange
+## 9. Sequence Diagram — Email Change Token Exchange
 
 ```mermaid
 sequenceDiagram

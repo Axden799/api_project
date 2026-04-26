@@ -1,7 +1,7 @@
 from datetime import datetime
 from flask import render_template, redirect, url_for, flash, request, session, current_app
 from flask_login import login_required, current_user
-from ..extensions import db
+from ..extensions import db, limiter
 from ..models import Organization, Membership, Invitation, PLAN_SEAT_LIMITS
 from . import orgs_bp
 from .forms import CreateOrgForm, InviteForm
@@ -76,6 +76,7 @@ def org_dashboard(org_id):
 
 @orgs_bp.route('/orgs/<int:org_id>/invite', methods=['POST'])
 @login_required
+@limiter.limit('5 per hour')
 def invite(org_id):
     org = db.session.get(Organization, org_id)
     if org is None:
@@ -99,15 +100,17 @@ def invite(org_id):
         email = form.email.data.lower()
         role = form.role.data
 
-        # Block duplicate pending invites to the same email
+        # If a pending invite already exists for this email, cancel it and
+        # issue a fresh one. This lets owners resend without waiting 48 hours.
+        # The old token stops working the moment it is deleted.
         existing = Invitation.query.filter_by(
             organization_id=org_id,
             email=email,
             accepted_at=None,
         ).first()
         if existing and existing.is_pending:
-            flash(f'A pending invitation for {email} already exists.', 'info')
-            return redirect(url_for('orgs.org_dashboard', org_id=org_id))
+            db.session.delete(existing)
+            db.session.flush()
 
         inv = Invitation.create(
             organization_id=org_id,
@@ -127,7 +130,7 @@ def invite(org_id):
         print(f'{"="*60}\n')
         current_app.logger.info(f'Invite URL: {accept_url}')
 
-        flash(f'Invitation sent to {email}. Check the terminal for the link.', 'success')
+        flash(f'Invitation sent to {email}. Check the terminal for the link. Any previous invite link for this address is now invalid.', 'success')
 
     return redirect(url_for('orgs.org_dashboard', org_id=org_id))
 
