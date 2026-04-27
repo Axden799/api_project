@@ -10,19 +10,21 @@ def _configure_logging(app):
     """
     Set up a rotating file logger for the application.
 
-    Files are written to logs/app.log. A new file is started once the
-    current one reaches 1 MB; up to 10 rotated files are kept before the
-    oldest is deleted. The total footprint is therefore capped at ~11 MB.
+    Always active — development, testing, and production all write logs.
 
-    Only active outside debug/testing mode — in dev, Flask's own debug
-    output is sufficient; in tests, logs would clutter pytest output.
+    Test runs write to logs/test.log so they stay separate from development
+    and production logs. Development and production both write to logs/app.log.
+
+    Each file rotates at 1 MB and keeps up to 10 backups (~11 MB cap per file).
     """
     os.makedirs('logs', exist_ok=True)
 
+    log_file = 'logs/test.log' if app.testing else 'logs/app.log'
+
     handler = RotatingFileHandler(
-        'logs/app.log',
+        log_file,
         maxBytes=1_000_000,   # rotate after 1 MB
-        backupCount=10,       # keep app.log.1 … app.log.10
+        backupCount=10,       # keep up to 10 rotated files
     )
     handler.setLevel(logging.WARNING)
 
@@ -55,8 +57,7 @@ def create_app(config_name=None):
     login_manager.login_message = 'Please log in to access this page.'
     login_manager.login_message_category = 'info'
 
-    if not app.debug and not app.testing:
-        _configure_logging(app)
+    _configure_logging(app)
 
     with app.app_context():
         from . import models  # noqa: F401 — registers tables with SQLAlchemy
