@@ -1,7 +1,11 @@
 from datetime import datetime
-from flask import session, flash
+from flask import session, flash, request, current_app
 from ..extensions import db
 from ..models import Invitation, Membership
+
+
+def _ip():
+    return request.headers.get('X-Forwarded-For', request.remote_addr)
 
 
 def process_pending_invite(user):
@@ -21,16 +25,28 @@ def process_pending_invite(user):
     invite = Invitation.query.filter_by(token=token).first()
 
     if invite is None or not invite.is_pending:
+        current_app.logger.warning(
+            f'INVITE_ACCEPT_FAILED: invalid or expired token  '
+            f'user={user.email}  ip={_ip()}'
+        )
         flash('The invitation link is invalid or has expired.', 'error')
         return
 
     if invite.email.lower() != user.email.lower():
+        current_app.logger.warning(
+            f'INVITE_ACCEPT_FAILED: email mismatch  '
+            f'invite_email={invite.email}  user={user.email}  ip={_ip()}'
+        )
         flash('This invitation was sent to a different email address.', 'error')
         return
 
     # Check the org is not already full
     org = invite.organization
     if org.is_at_seat_limit:
+        current_app.logger.warning(
+            f'INVITE_ACCEPT_FAILED: seat limit reached  '
+            f'org="{org.name}"  org_id={org.id}  user={user.email}  ip={_ip()}'
+        )
         flash(
             f'"{org.name}" has reached its seat limit. Ask the owner to upgrade the plan.',
             'error',
@@ -58,5 +74,10 @@ def process_pending_invite(user):
 
     db.session.add(membership)
     db.session.commit()
+
+    current_app.logger.warning(
+        f'INVITE_ACCEPTED: user joined org  org="{org.name}"  org_id={org.id}  '
+        f'user={user.email}  role={invite.role}  ip={_ip()}'
+    )
 
     flash(f'You have joined "{org.name}" as {invite.role}.', 'success')

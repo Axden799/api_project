@@ -2,6 +2,10 @@ from datetime import datetime
 from flask import render_template, redirect, url_for, flash, request, session, current_app
 from flask_login import login_required, current_user
 from ..extensions import db, limiter
+
+
+def _ip():
+    return request.headers.get('X-Forwarded-For', request.remote_addr)
 from ..models import Organization, Membership, Invitation, PLAN_SEAT_LIMITS
 from . import orgs_bp
 from .forms import CreateOrgForm, InviteForm
@@ -32,6 +36,11 @@ def create():
         )
         db.session.add(membership)
         db.session.commit()
+
+        current_app.logger.warning(
+            f'ORG_CREATED: new organization  org="{org.name}"  '
+            f'org_id={org.id}  owner={current_user.email}  ip={_ip()}'
+        )
 
         flash(f'"{org.name}" created successfully.', 'success')
         return redirect(url_for('orgs.org_dashboard', org_id=org.id))
@@ -108,9 +117,11 @@ def invite(org_id):
             email=email,
             accepted_at=None,
         ).first()
+        resent = False
         if existing and existing.is_pending:
             db.session.delete(existing)
             db.session.flush()
+            resent = True
 
         inv = Invitation.create(
             organization_id=org_id,
@@ -128,7 +139,12 @@ def invite(org_id):
         print(f'INVITE LINK for {email} to join "{org.name}" as {role}:')
         print(f'{accept_url}')
         print(f'{"="*60}\n')
-        current_app.logger.info(f'Invite URL: {accept_url}')
+
+        action = 'INVITE_RESENT' if resent else 'INVITE_SENT'
+        current_app.logger.warning(
+            f'{action}: invitation issued  org="{org.name}"  org_id={org_id}  '
+            f'to={email}  role={role}  by={current_user.email}  ip={_ip()}'
+        )
 
         flash(f'Invitation sent to {email}. Check the terminal for the link. Any previous invite link for this address is now invalid.', 'success')
 
@@ -144,6 +160,9 @@ def accept_invite(token):
     invite = Invitation.query.filter_by(token=token).first()
 
     if invite is None or not invite.is_pending:
+        current_app.logger.warning(
+            f'INVITE_INVALID: bad or expired token used  ip={_ip()}'
+        )
         flash('This invitation link is invalid or has expired.', 'error')
         return redirect(url_for('auth.login'))
 
@@ -203,8 +222,17 @@ def remove_member(org_id, user_id):
         flash('The owner cannot be removed. Transfer ownership first.', 'error')
         return redirect(url_for('orgs.org_dashboard', org_id=org_id))
 
+    removed_email = target.user.email
+    removed_role = target.role
     db.session.delete(target)
     db.session.commit()
+
+    current_app.logger.warning(
+        f'MEMBER_REMOVED: member removed from org  org="{org.name}"  org_id={org_id}  '
+        f'removed={removed_email}  removed_role={removed_role}  '
+        f'by={current_user.email}  by_role={actor.role}  ip={_ip()}'
+    )
+
     flash('Member removed.', 'success')
     return redirect(url_for('orgs.org_dashboard', org_id=org_id))
 
@@ -244,7 +272,15 @@ def change_role(org_id, user_id):
         flash('Invalid role.', 'error')
         return redirect(url_for('orgs.org_dashboard', org_id=org_id))
 
+    old_role = target.role
     target.role = new_role
     db.session.commit()
+
+    current_app.logger.warning(
+        f'ROLE_CHANGED: member role updated  org="{org.name}"  org_id={org_id}  '
+        f'member={target.user.email}  old_role={old_role}  new_role={new_role}  '
+        f'by={current_user.email}  ip={_ip()}'
+    )
+
     flash('Role updated.', 'success')
     return redirect(url_for('orgs.org_dashboard', org_id=org_id))

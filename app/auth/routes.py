@@ -16,6 +16,11 @@ from .forms import (
 RESEND_COOLDOWN_SECONDS = 60
 
 
+def _ip():
+    """Return the real client IP, respecting the X-Forwarded-For header set by proxies."""
+    return request.headers.get('X-Forwarded-For', request.remote_addr)
+
+
 # ---------------------------------------------------------------------------
 # Token helpers
 # ---------------------------------------------------------------------------
@@ -131,6 +136,10 @@ def register():
         db.session.add(user)
         db.session.commit()
 
+        current_app.logger.warning(
+            f'REGISTER: new account created  email={user.email}  ip={_ip()}'
+        )
+
         token = generate_verification_token(user.id)
         verify_url = url_for('auth.verify_email', token=token, _external=True)
 
@@ -139,7 +148,6 @@ def register():
         print(f'VERIFICATION LINK for {user.email}:')
         print(f'{verify_url}')
         print(f'{"="*60}\n')
-        current_app.logger.info(f'Verification URL: {verify_url}')
 
         session['verify_user_id'] = user.id
         return redirect(url_for('auth.verify_pending'))
@@ -221,7 +229,10 @@ def resend_verification():
     print(f'VERIFICATION LINK for {user.email}:')
     print(f'{verify_url}')
     print(f'{"="*60}\n')
-    current_app.logger.info(f'Verification URL: {verify_url}')
+
+    current_app.logger.warning(
+        f'RESEND_VERIFICATION: new link issued  email={user.email}  ip={_ip()}'
+    )
 
     session['verify_resend_at'] = datetime.now(timezone.utc).isoformat()
     flash('A new verification link has been sent. Check the terminal.', 'success')
@@ -242,14 +253,23 @@ def login():
         user = User.query.filter_by(email=form.email.data.lower()).first()
 
         if user is None or not user.check_password(form.password.data):
+            current_app.logger.warning(
+                f'LOGIN_FAILED: bad credentials  email={form.email.data.lower()}  ip={_ip()}'
+            )
             flash('Invalid email or password.', 'error')
             return redirect(url_for('auth.login'))
 
         if not user.is_active:
+            current_app.logger.warning(
+                f'LOGIN_FAILED: deactivated account  email={user.email}  ip={_ip()}'
+            )
             flash('This account has been deactivated.', 'error')
             return redirect(url_for('auth.login'))
 
         login_user(user, remember=form.remember_me.data)
+        current_app.logger.warning(
+            f'LOGIN_SUCCESS: user authenticated  email={user.email}  ip={_ip()}'
+        )
 
         # Consume a pending org invite if the user arrived via an invite link.
         from ..orgs.utils import process_pending_invite
@@ -269,6 +289,9 @@ def login():
 @auth_bp.route('/logout', methods=['POST'])
 @login_required
 def logout():
+    current_app.logger.warning(
+        f'LOGOUT: user signed out  email={current_user.email}  ip={_ip()}'
+    )
     logout_user()
     flash('You have been logged out.', 'success')
     return redirect(url_for('auth.login'))
@@ -292,6 +315,9 @@ def change_email():
 
     if form.validate_on_submit():
         if not current_user.check_password(form.password.data):
+            current_app.logger.warning(
+                f'CHANGE_EMAIL_FAILED: wrong password  email={current_user.email}  ip={_ip()}'
+            )
             flash('Current password is incorrect.', 'error')
             return redirect(url_for('auth.change_email'))
 
@@ -309,7 +335,11 @@ def change_email():
         print(f'EMAIL CHANGE CONFIRMATION LINK for {current_user.email} → {new_email}:')
         print(f'{confirm_url}')
         print(f'{"="*60}\n')
-        current_app.logger.info(f'Email change URL: {confirm_url}')
+
+        current_app.logger.warning(
+            f'CHANGE_EMAIL_REQUESTED: confirmation link issued  '
+            f'old_email={current_user.email}  new_email={new_email}  ip={_ip()}'
+        )
 
         flash(
             f'A confirmation link has been sent to {new_email}. '
@@ -345,9 +375,16 @@ def confirm_email_change(token):
         flash('That email address is already in use.', 'error')
         return redirect(url_for('auth.settings'))
 
+    old_email = current_user.email
     current_user.email = new_email
     current_user.email_verified = True
     db.session.commit()
+
+    current_app.logger.warning(
+        f'CHANGE_EMAIL_CONFIRMED: email updated  '
+        f'old_email={old_email}  new_email={new_email}  '
+        f'user_id={current_user.id}  ip={_ip()}'
+    )
 
     flash('Email address updated successfully.', 'success')
     return redirect(url_for('auth.settings'))
@@ -368,11 +405,20 @@ def change_password():
         # Without this, anyone who finds an unlocked browser can permanently
         # take over the account by setting a new password.
         if not current_user.check_password(form.current_password.data):
+            current_app.logger.warning(
+                f'CHANGE_PASSWORD_FAILED: wrong current password  '
+                f'email={current_user.email}  ip={_ip()}'
+            )
             flash('Current password is incorrect.', 'error')
             return redirect(url_for('auth.change_password'))
 
         current_user.set_password(form.new_password.data)
         db.session.commit()
+
+        current_app.logger.warning(
+            f'CHANGE_PASSWORD_SUCCESS: password updated  '
+            f'email={current_user.email}  ip={_ip()}'
+        )
 
         flash('Password changed successfully.', 'success')
         return redirect(url_for('auth.settings'))
@@ -406,7 +452,16 @@ def forgot_password():
             print(f'PASSWORD RESET LINK for {user.email}:')
             print(f'{reset_url}')
             print(f'{"="*60}\n')
-            current_app.logger.info(f'Password reset URL: {reset_url}')
+
+            current_app.logger.warning(
+                f'PASSWORD_RESET_REQUESTED: reset link issued  '
+                f'email={user.email}  ip={_ip()}'
+            )
+        else:
+            current_app.logger.warning(
+                f'PASSWORD_RESET_REQUESTED: unknown or inactive email submitted  '
+                f'email={form.email.data.lower()}  ip={_ip()}'
+            )
 
         flash(
             'If an account with that email exists, a reset link has been sent. '
@@ -438,6 +493,11 @@ def reset_password(token):
         user.set_password(form.new_password.data)
         db.session.commit()
 
+        current_app.logger.warning(
+            f'PASSWORD_RESET_COMPLETED: password changed via reset token  '
+            f'email={user.email}  ip={_ip()}'
+        )
+
         # Log the user in immediately — no need to make them sign in again
         # after just proving ownership via the token.
         login_user(user)
@@ -467,6 +527,10 @@ def verify_email(token):
 
     user.email_verified = True
     db.session.commit()
+
+    current_app.logger.warning(
+        f'EMAIL_VERIFIED: email confirmed  email={user.email}  ip={_ip()}'
+    )
 
     flash('Email verified successfully. You can now log in.', 'success')
     return redirect(url_for('auth.login'))
